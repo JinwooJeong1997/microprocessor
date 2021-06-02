@@ -2,8 +2,8 @@
 팀 프로젝트
 digital clock
 todo-list
-login
-timer => 
+login => done
+timer => done
 dual time - 미국/한국 시간 이런식 =? GMT+N
 */
 
@@ -24,13 +24,14 @@ dual time - 미국/한국 시간 이런식 =? GMT+N
 #define STAT_TIME 2
 #define STAT_DTIME 3
 #define STAT_SETTING 4
-    
+
 volatile int cnt = 0, led = 0;
 unsigned char keydata = 0;
 unsigned char key_old = 0;
 unsigned int pw = 1234;
 unsigned int input_pw = 0;
 unsigned int input_cnt = 0;
+unsigned int pre_stat = 0;
 
 unsigned int status = 0;
 
@@ -41,7 +42,8 @@ struct t24
     short sec;
 };
 
-void changeStatus(int s){
+void changeStatus(int s)
+{
     lcdClear();
     status = s;
 }
@@ -131,8 +133,8 @@ void keyInput()
 
                 if (input_pw != pw)
                 {
-                        input_cnt = 0;
-                        input_pw = 0;
+                    input_cnt = 0;
+                    input_pw = 0;
                 }
                 else
                 {
@@ -142,8 +144,7 @@ void keyInput()
             }
             break;
         case STAT_TIME:
-            switch (keydata)
-            {
+            switch (keydata){
             case 0x01:
                 break;
             case 0x02:
@@ -156,40 +157,111 @@ void keyInput()
             }
             break;
         case STAT_DTIME:
-            switch (keydata)
-            {
+            switch (keydata){
             case 0x02:
                 changeStatus(STAT_TIME);
                 break;
             case 0x08:
-                gmt++;
-                if (gmt == 24)
-                {
-                    gmt = 0;
+                gmt--;
+                if (gmt < 0){
+                    gmt = 23;
                 }
                 break;
             case 0x10:
-                gmt--;
-                if (gmt < 0)
-                {
-                    gmt = 23;
+                gmt++;
+                if (gmt == 24){
+                    gmt = 0;
                 }
                 break;
             }
             break;
+        case STAT_SETTING:
+            switch(keydata){
+                case 0x04:
+                    break;
+                case 0x08:
+                    break;
+                    curTime.sec == 0;
+                case 0x10:
+                    curTime.min--;
+                    break;
+                case 0x20:
+                    curTime.min++;
+                    break;
+                case 0x40:
+                    curTime.hour--;
+                    break;
+                case 0x80:
+                    curTime.hour++;
+                    break;
+                default:
+                    break;
+            }
+
+            if(curTime.min < 0){ 
+                curTime.min = 59; 
+                curTime.hour --;
+            }else if (curTime.min >= 60){
+                curTime.min = 0;
+                curTime.hour ++;
+            }
+            if(curTime.hour < 0){
+                curTime.hour = 23;
+            }else if(curTime.hour >= 24){
+                curTime.hour = 0;
+            }
+
+            break;
         }
-    }else //keyhold 구현
+    }
+    else //keyhold 구현
     {
-        switch(status){
-            case STAT_TIME:
-            if(key_old == 0x01){
-                input_cnt ++;
-                if(input_cnt >= 3000){
+        switch (status)
+        {
+        case STAT_TIME:
+            if (key_old == 0x01)
+            {
+                input_cnt++;
+                if (input_cnt >= 1000)
+                {
+                    pre_stat = status;
                     changeStatus(STAT_SETTING);
                     input_cnt = 0;
                 }
             }
-            else{
+            else
+            {
+                input_cnt = 0;
+            }
+            break;
+        case STAT_DTIME:
+            if (key_old == 0x01)
+            {
+                input_cnt++;
+                if (input_cnt >= 1000)
+                {
+                    pre_stat = status;
+                    changeStatus(STAT_SETTING);
+                    input_cnt = 0;
+                }
+            }
+            else
+            {
+                input_cnt = 0;
+            }
+            break;
+        case STAT_SETTING:
+            if (key_old == 0x01)
+            {
+                input_cnt++;
+                if (input_cnt >= 500)
+                {
+                    changeStatus(pre_stat);
+                    input_cnt = 0;
+                }
+            }
+            else
+            {
                 input_cnt = 0;
             }
             break;
@@ -201,8 +273,6 @@ void keyInput()
 //lcd관리
 void lcdCTL(int stat)
 {
-    //lcd_gotoxy(1,1);
-    //lcd_putn3(led);
     switch (stat)
     {
     case STAT_LOGIN:
@@ -216,58 +286,61 @@ void lcdCTL(int stat)
     case STAT_TIME:
         lcd_gotoxy(1, 1);
         lcd_putn2(curTime.hour);
-        lcd_gotoxy(3,1);
+        lcd_gotoxy(3, 1);
         lcd_putss(":");
-        lcd_gotoxy(4,1);
+        lcd_gotoxy(4, 1);
         lcd_putn2(curTime.min);
-        lcd_gotoxy(6,1);
+        lcd_gotoxy(6, 1);
         lcd_putss(":");
         lcd_gotoxy(7, 1);
         lcd_putn2(curTime.sec);
-        lcd_gotoxy(10,1);
+        lcd_gotoxy(10, 1);
         lcd_putn4(input_cnt);
 
         lcd_gotoxy(1, 2);
         lcd_putss("login complete");
         break;
     case STAT_DTIME:
-        lcd_gotoxy(1,1);
+        lcd_gotoxy(1, 1);
         lcd_putn2(curTime.hour);
-        lcd_gotoxy(3,1);
+        lcd_gotoxy(3, 1);
         lcd_putss(":");
         lcd_gotoxy(4, 1);
         lcd_putn2(curTime.min);
-        lcd_gotoxy(6,1);
+        lcd_gotoxy(6, 1);
         lcd_putss(":");
         lcd_gotoxy(7, 1);
-        lcd_putn2(curTime.sec);    
-
-
-        lcd_gotoxy(1,2);
-        lcd_putn2((curTime.hour+gmt)%24);
-        lcd_gotoxy(3,2);
-        lcd_putss(":");
-        lcd_gotoxy(4,2);
-        lcd_putn2(curTime.min);
-        lcd_gotoxy(6,2);
-        lcd_putss(":");
-        lcd_gotoxy(7,2);
         lcd_putn2(curTime.sec);
+
+        lcd_gotoxy(1, 2);
+        lcd_putn2((curTime.hour + gmt) % 24);
+        lcd_gotoxy(3, 2);
+        lcd_putss(":");
+        lcd_gotoxy(4, 2);
+        lcd_putn2(curTime.min);
+        lcd_gotoxy(6, 2);
+        lcd_putss(":");
+        lcd_gotoxy(7, 2);
+        lcd_putn2(curTime.sec);
+        lcd_gotoxy(9,2);
+        lcd_putss(" +");
+        lcd_gotoxy(11,2);
+        lcd_putn2(gmt);
         break;
 
     case STAT_SETTING:
-    lcd_gotoxy(1,1);
+        lcd_gotoxy(1, 1);
         lcd_putn2(curTime.hour);
-        lcd_gotoxy(3,1);
+        lcd_gotoxy(3, 1);
         lcd_putss(":");
         lcd_gotoxy(4, 1);
         lcd_putn2(curTime.min);
-        lcd_gotoxy(6,1);
+        lcd_gotoxy(6, 1);
         lcd_putss(":");
         lcd_gotoxy(7, 1);
-        lcd_putn2(curTime.sec); 
+        lcd_putn2(curTime.sec);
 
-        lcd_gotoxy(1,2);
+        lcd_gotoxy(1, 2);
         lcd_putss("SETTING_TIME");
         break;
     default:
@@ -283,16 +356,19 @@ ISR(TIMER0_COMP_vect)
     {
         LED = 1 << (led % 8);
         cnt = 0;
-        curTime.sec ++;
-        if(curTime.sec >= 60){
+        curTime.sec++;
+        if (curTime.sec >= 60)
+        {
             curTime.sec = 0;
-            curTime.min ++;
+            curTime.min++;
         }
-        if(curTime.min >= 60){
+        if (curTime.min >= 60)
+        {
             curTime.min = 0;
-            curTime.hour ++;
+            curTime.hour++;
         }
-        if(curTime.hour > 24){
+        if (curTime.hour > 24)
+        {
             curTime.hour = 0;
         }
         led++;
@@ -308,6 +384,8 @@ void manager(unsigned int stat)
     case STAT_LOGIN:
         break;
     case STAT_TIME:
+        break;
+    case STAT_SETTING:
         break;
     }
 }
@@ -325,7 +403,6 @@ void main(void)
     lcdInit();
     lcdClear();
     status = STAT_LOGIN;
-
     while (1)
     {
         manager(status);
